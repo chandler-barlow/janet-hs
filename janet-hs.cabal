@@ -1,37 +1,33 @@
-cabal-version:      3.0
-name:               janet-hs
-version:            0.1.0.0
-synopsis:           Lib for embedding janet-lang into haskell applications
-license:            MIT
-license-file:       LICENSE
-author:             Chandler Barlow
-maintainer:         chandlerbrlw@gmail.com
-build-type:         Simple
-extra-doc-files:    CHANGELOG.md
+cabal-version:   3.0
+name:            janet-hs
+version:         0.1.0.0
+synopsis:        Lib for embedding janet-lang into haskell applications
+license:         MIT
+license-file:    LICENSE
+author:          Chandler Barlow
+maintainer:      chandlerbrlw@gmail.com
+build-type:      Simple
+extra-doc-files: CHANGELOG.md
 
 common warnings
-    ghc-options: -Wall
+  ghc-options: -Wall
 
 library
-    import:           warnings
-    exposed-modules:  
-        Janet
-        Janet.Internal
-    includes:
-        include/janet.h
-    include-dirs:
-        include
-    build-depends:    
-        base ^>=4.18.2.1
-    hs-source-dirs:   lib
-    default-language: GHC2021
+  import:           warnings
+  exposed-modules:
+    Janet
+    Janet.Internal
+
+  includes:         include/janet.h
+  include-dirs:     include
+  build-depends:    base
+  hs-source-dirs:   lib
+  default-language: GHC2021
 
 executable janet-demo
-    main-is:
-        Main.hs
-    hs-source-dirs:
-        exe
-    default-language: GHC2021
-    build-depends:
-        base ^>=4.18.2.1,
-        janet-hs
+  main-is:          Main.hs
+  hs-source-dirs:   exe
+  default-language: GHC2021
+  build-depends:
+    , base
+    , janet-hs
