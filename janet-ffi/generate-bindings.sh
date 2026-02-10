@@ -1,7 +1,7 @@
 #! /usr/bin/env bash
-ROOT=$(git rev-parse --show-toplevel)
+ROOT=$(git rev-parse --show-toplevel)/janet-ffi
 hs-bindgen-cli preprocess \
-  --hs-output-dir $ROOT/bindings \
+  --hs-output-dir $ROOT/lib \
   --overwrite-files \
   --create-output-dirs \
   --module Generated.Janet \

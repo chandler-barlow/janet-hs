@@ -78,7 +78,7 @@
                 help = "links the janet headers into the include dir";
                 name = "link-janet";
                 command = ''
-                  ROOT=$(git rev-parse --show-toplevel)
+                  ROOT=$(git rev-parse --show-toplevel)/janet-ffi
                   echo "linking janet headers..."
                   mkdir $ROOT/include
                   ln -f -s ${final.janet-headers}/janet.h $ROOT/include/janet.h
@@ -88,7 +88,7 @@
                 help = "generate the janet header bindings";
                 name = "generate-bindings";
                 command = ''
-                  ROOT=$(git rev-parse --show-toplevel)
+                  ROOT=$(git rev-parse --show-toplevel)/janet-ffi
                   $ROOT/generate-bindings.sh
                 '';
               }
@@ -119,7 +119,9 @@
               config.devShells.janet-hs
             ];
           };
-          packages = { };
+          packages = {
+            janet-ffi = pkgs.stdenv.mkDerivation
+          };
         };
     };
 }

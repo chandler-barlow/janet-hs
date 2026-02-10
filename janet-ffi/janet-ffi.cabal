@@ -1,0 +1,33 @@
+cabal-version:      3.0
+name:               janet-ffi
+version:            0.1.0.0
+synopsis:           Generated ffi for janet runtime
+license:            MIT
+license-file:       LICENSE
+author:             chandler-barlow
+maintainer:         chandlerbrlw@gmail.com
+build-type:         Simple
+
+common warnings
+    ghc-options: -Wall
+
+library
+  import:
+    warnings
+
+  includes:        include/janet.h
+  include-dirs:    include
+  extra-libraries: janet
+  hs-source-dirs:  bindings
+  exposed-modules:
+    Generated.Janet
+    Generated.Janet.FunPtr
+    Generated.Janet.Safe
+    Generated.Janet.Unsafe
+
+  build-depends:
+    , base
+    , hs-bindgen-runtime
+    , primitive
+    , text
+
