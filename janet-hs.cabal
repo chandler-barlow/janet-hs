@@ -12,22 +12,54 @@ extra-doc-files: CHANGELOG.md
 common warnings
   ghc-options: -Wall
 
+common opts
+  default-language: GHC2021
+
 library
-  import:           warnings
+  import:
+    warnings,
+    opts
+
   exposed-modules:
     Janet
-    Janet.Internal
+    Janet.Monad
 
-  includes:         include/janet.h
-  include-dirs:     include
-  build-depends:    base
-  hs-source-dirs:   lib
-  default-language: GHC2021
+  build-depends:
+    , base
+    , hs-bindgen-runtime
+    , janet-ffi
+    , text
+
+  hs-source-dirs:  lib
+
+library janet-ffi
+  import:
+    warnings,
+    opts
+
+  includes:        include/janet.h
+  include-dirs:    include
+  extra-libraries: janet
+  hs-source-dirs:  bindings
+  exposed-modules:
+    Generated.Janet
+    Generated.Janet.FunPtr
+    Generated.Janet.Safe
+    Generated.Janet.Unsafe
+
+  build-depends:
+    , base
+    , hs-bindgen-runtime
+    , primitive
+    , text
 
 executable janet-demo
-  main-is:          Main.hs
-  hs-source-dirs:   exe
-  default-language: GHC2021
+  import:
+    warnings,
+    opts
+
+  main-is:        Main.hs
+  hs-source-dirs: exe
   build-depends:
     , base
     , janet-hs

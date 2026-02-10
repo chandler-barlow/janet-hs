@@ -5,6 +5,11 @@
     haskell-flake.url = "github:srid/haskell-flake";
     devshell.url = "github:numtide/devshell";
     treefmt-nix.url = "github:numtide/treefmt-nix";
+    hs-bindgen.url = "github:well-typed/hs-bindgen";
+    janet-source = {
+      url = "github:janet-lang/janet";
+      flake = false;
+    };
   };
   outputs =
     inputs@{
@@ -14,6 +19,8 @@
       haskell-flake,
       devshell,
       treefmt-nix,
+      hs-bindgen,
+      janet-source,
       ...
     }:
     flake-parts.lib.mkFlake { inherit inputs; } {
@@ -31,38 +38,65 @@
           pkgs,
           final,
           config,
+          system,
           ...
         }:
+        let
+          janet-headers = pkgs.stdenv.mkDerivation {
+            name = "janet-headers";
+            src = janet-source;
+            buildPhase = ''
+              mkdir $out
+              make build/janet.h
+              cp ./build/janet.h $out
+            '';
+            dontInstall = true;
+          };
+        in
         {
+          _module.args.pkgs = import self.inputs.nixpkgs {
+            inherit system;
+            overlays = [
+              # we need this so that we can have access
+              # to the bindgen runtime library
+              hs-bindgen.outputs.overlays.default
+            ];
+            config.allowUnfree = true;
+          };
           treefmt.programs = {
             nixfmt.enable = true;
             fourmolu.enable = true;
             cabal-fmt.enable = true;
           };
           overlayAttrs = {
-            janet-headers = pkgs.callPackage ./janet-headers.nix { };
+            inherit janet-headers;
+            inherit (hs-bindgen.outputs.packages."${system}") hs-bindgen-cli;
           };
           devshells.commands = {
-            env = [
-              {
-                name = "HTTP_PORT";
-                value = 8080;
-              }
-            ];
             commands = [
               {
                 help = "links the janet headers into the include dir";
                 name = "link-janet";
                 command = ''
+                  ROOT=$(git rev-parse --show-toplevel)
                   echo "linking janet headers..."
-                  mkdir ./include
-                  ln -f -s ${final.janet-headers}/janet.h include/janet.h
+                  mkdir $ROOT/include
+                  ln -f -s ${final.janet-headers}/janet.h $ROOT/include/janet.h
+                '';
+              }
+              {
+                help = "generate the janet header bindings";
+                name = "generate-bindings";
+                command = ''
+                  ROOT=$(git rev-parse --show-toplevel)
+                  $ROOT/generate-bindings.sh
                 '';
               }
             ];
-            packages = with pkgs; [
+            packages = with final; [
               janet
               jpm
+              hs-bindgen-cli
             ];
           };
 
@@ -72,8 +106,11 @@
                 fourmolu = hp.fourmolu;
                 ghcid = null;
               };
-              # Check that haskell-language-server works
-              # hlsCheck.enable = true; # Requires sandbox to be disabled
+            };
+            settings = {
+              janet-ffi = {
+                extraLibraries = hp: [ pkgs.janet ];
+              };
             };
           };
           devShells.default = pkgs.mkShell {
@@ -82,7 +119,7 @@
               config.devShells.janet-hs
             ];
           };
-          packages.default = self'.packages.example;
+          packages = { };
         };
     };
 }
