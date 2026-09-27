@@ -24,16 +24,20 @@ library
     Janet
     Janet.Marshal
     Janet.Monad
+    Janet.Register
 
   build-depends:
     , base
     , bytestring
+    , containers
     , hs-bindgen-runtime
     , janet-ffi
     , text
     , transformers
 
   hs-source-dirs:  lib
+  include-dirs:    include
+  c-sources:       cbits/janet_trampolines.c
 
 library janet-ffi
   import:
@@ -67,4 +71,6 @@ executable janet-demo
   hs-source-dirs: exe
   build-depends:
     , base
+    , containers
     , janet-hs
+    , text

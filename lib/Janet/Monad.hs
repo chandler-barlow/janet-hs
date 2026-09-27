@@ -43,9 +43,20 @@ class MonadIO m => MonadJanet m where
     -- session, unlike 'runJanetMEither' (which starts a whole new session).
     tryJanet :: m a -> m (Either JanetException a)
 
+    -- | Re-enter this monad given just the environment it was running
+    -- against, without going through this monad's own top-level runner.
+    --
+    -- This is what lets a Janet-native callback (a C function pointer,
+    -- invoked directly by the interpreter with no Haskell monad context
+    -- of its own) call back into @m@: 'Janet.Register.registerFunction'
+    -- captures the environment once at registration time and uses this to
+    -- re-enter @m@ on every subsequent call.
+    runJanetWithEnv :: JanetEnv -> m a -> IO a
+
 instance MonadJanet JanetM where
     askJanetEnv = JanetM ask
     tryJanet (JanetM (ReaderT g)) = JanetM $ ReaderT $ try . g
+    runJanetWithEnv env (JanetM r) = runReaderT r env
 
 runJanetM :: JanetM a -> IO a
 runJanetM (JanetM m) = withJanet $ runReaderT m

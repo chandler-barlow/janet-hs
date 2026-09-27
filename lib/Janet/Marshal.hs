@@ -15,18 +15,24 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.Encoding qualified as T
 import Foreign.C.Types (CDouble)
+import Foreign.Marshal.Array (peekArray, withArrayLen)
 import Foreign.Ptr (castPtr)
+import Foreign.Storable (peek)
 import Generated.Janet
     ( Janet (..)
+    , JanetArray (..)
     , JanetType
+    , pattern JANET_ARRAY
     , pattern JANET_BOOLEAN
     , pattern JANET_NIL
     , pattern JANET_NUMBER
     , pattern JANET_STRING
     )
 import Generated.Janet.Safe
-    ( janet_string
+    ( janet_array_n
+    , janet_string
     , janet_to_string
+    , janet_wrap_array
     , janet_wrap_boolean
     , janet_wrap_nil
     , janet_wrap_number
@@ -102,6 +108,24 @@ instance FromJanet a => FromJanet (Maybe a) where
     fromJanet v = case janet_type v of
         JANET_NIL -> pure $ Right Nothing
         _ -> fmap Just <$> fromJanet v
+
+-- | Converts to a Janet array (@\@[...]@). Converting /from/ a Janet value
+-- only accepts an array, not a tuple (@[...]@) — there's no 'FromJanet'
+-- instance unifying both yet.
+instance ToJanet a => ToJanet [a] where
+    toJanet xs = do
+        janetXs <- mapM toJanet xs
+        liftIO
+            $ withArrayLen janetXs
+            $ \len ptr -> janet_array_n (unsafeFromPtr ptr) (fromIntegral len) >>= janet_wrap_array
+
+instance FromJanet a => FromJanet [a] where
+    fromJanet v = case janet_type v of
+        JANET_ARRAY -> do
+            arr <- liftIO $ peek $ castPtr $ BG.getField @"janet_as_pointer" $ janet_as v
+            elems <- liftIO $ peekArray (fromIntegral $ janetArray_count arr) (janetArray_data arr)
+            sequence <$> mapM fromJanet elems
+        other -> pure $ typeMismatch "array" other
 
 -- | Evaluate a string of Janet source and convert the result.
 evalAs :: (MonadJanet m, FromJanet a) => Text -> m (Either Text a)
