@@ -17,9 +17,10 @@ main = do
     hSetBuffering stdout NoBuffering
     putStrLn "Welcome to janet-hs test repl ..."
     runJanetM $ do
-        registerFunctions demoFunctions
         memoFib <- liftIO mkMemoFib
-        registerFunction (T.pack "haskell-memo-fib") memoFib
+        let fns = demoFunctions memoFib
+        registerFunctions fns
+        liftIO $ putStrLn $ "Registered Haskell functions: " <> T.unpack (T.intercalate (T.pack ", ") (Map.keys fns))
         repl
 
 repl :: JanetM ()
@@ -31,12 +32,13 @@ repl = forever $ do
         Left err -> liftIO $ hPutStrLn stderr $ show err
         Right _ -> pure ()
 
-demoFunctions :: Map.Map Text (SomeJanetFunction JanetM)
-demoFunctions =
+demoFunctions :: (Double -> JanetM Double) -> Map.Map Text (SomeJanetFunction JanetM)
+demoFunctions memoFib =
     Map.fromList
         [ (T.pack "haskell-quick-sort", SomeJanetFunction quickSortFn)
         , (T.pack "haskell-title-case", SomeJanetFunction titleCaseFn)
         , (T.pack "haskell-sum", SomeJanetFunction (variadic sumFn))
+        , (T.pack "haskell-memo-fib", SomeJanetFunction memoFib)
         ]
   where
     quickSortFn :: [Double] -> JanetM [Double]
