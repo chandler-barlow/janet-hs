@@ -18,16 +18,16 @@ module Janet.Register
 
 import Control.Monad.IO.Class (liftIO)
 import Data.ByteString.Char8 qualified as BS8
-import Data.IORef
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.Encoding qualified as T
 import Foreign.Marshal.Array (peekArray)
-import Foreign.Ptr (FunPtr, Ptr)
-import Foreign.Storable (peekElemOff, poke)
-import Generated.Janet (Janet, JanetCFunction)
+import Foreign.Ptr (Ptr)
+import Foreign.StablePtr (StablePtr, deRefStablePtr, newStablePtr)
+import Foreign.Storable (poke)
+import Generated.Janet (Janet, JanetCFunction (..))
 import Generated.Janet.Safe (janet_def, janet_wrap_cfunction, janet_wrap_nil)
 import HsBindgen.Runtime.LibC (Int32)
 import HsBindgen.Runtime.PtrConst (unsafeFromPtr)
@@ -35,7 +35,6 @@ import Janet (JanetEnv (..))
 import Janet.Marshal (FromJanet (..), ToJanet (..))
 import Janet.Monad (MonadJanet (..))
 import System.IO (hPutStrLn, stderr)
-import System.IO.Unsafe (unsafePerformIO)
 
 -- | Any Haskell value that can act as a registered Janet function's
 -- implementation: a curried function of any fixed arity terminating in
@@ -85,38 +84,25 @@ variadic f = Variadic $ \args ->
 -- heterogeneous collection of registrations in one 'Map'.
 data SomeJanetFunction m = forall f. JanetFunction m f => SomeJanetFunction f
 
--- Bridges a real Haskell closure to the fixed pool of C trampolines in
--- cbits/janet_trampolines.c — see the comment there for why a pool of
--- distinct C entry points is needed at all, and why they're addressed
--- through an out-pointer here rather than a raw `IO Janet` foreign import
--- (GHC's FFI can't marshal a struct return by value).
-foreign import ccall "wrapper"
-    mkSlotFn :: (Int32 -> Ptr Janet -> Ptr Janet -> IO ()) -> IO (FunPtr (Int32 -> Ptr Janet -> Ptr Janet -> IO ()))
+-- The C side (cbits/janet_dynamic_closure.c) builds a fresh libffi closure
+-- per registration — a genuine JanetCFunction, with the real by-value
+-- struct-return ABI Janet expects, and no fixed count. Each closure is
+-- given a StablePtr to its Haskell callback as opaque userdata, and calls
+-- back into 'janetHsDispatch' to run it. 'Janet' only ever crosses this
+-- boundary through a pointer (never a raw `IO Janet` foreign import,
+-- which GHC's FFI can't marshal by value).
+type JanetHsCallback = Int32 -> Ptr Janet -> Ptr Janet -> IO ()
 
-foreign import ccall "janet_hs_set_slot"
-    c_janetHsSetSlot :: Int32 -> FunPtr (Int32 -> Ptr Janet -> Ptr Janet -> IO ()) -> IO ()
+foreign import ccall "janet_hs_make_closure"
+    c_janetHsMakeClosure :: StablePtr JanetHsCallback -> IO JanetCFunction
 
-foreign import ccall "&janet_hs_trampolines"
-    janetHsTrampolines :: Ptr JanetCFunction
+foreign export ccall "janet_hs_dispatch"
+    janetHsDispatch :: StablePtr JanetHsCallback -> JanetHsCallback
 
--- | Keep in sync with @JANET_HS_NUM_SLOTS@ in cbits/janet_trampolines.c.
-janetHsSlotCount :: Int32
-janetHsSlotCount = 16
-
-{-# NOINLINE nextJanetHsSlot #-}
-nextJanetHsSlot :: IORef Int32
-nextJanetHsSlot = unsafePerformIO $ newIORef 0
-
-allocateJanetHsSlot :: IO Int32
-allocateJanetHsSlot = atomicModifyIORef' nextJanetHsSlot $ \n ->
-    if n >= janetHsSlotCount
-        then
-            error
-                $ "Janet.Register: exceeded the fixed pool of "
-                <> show janetHsSlotCount
-                <> " registerable Haskell functions (raise JANET_HS_NUM_SLOTS in "
-                <> "cbits/janet_trampolines.c to register more)"
-        else (n + 1, n)
+janetHsDispatch :: StablePtr JanetHsCallback -> JanetHsCallback
+janetHsDispatch sp argc argv out = do
+    callback <- deRefStablePtr sp
+    callback argc argv out
 
 -- | Register a Haskell function as a Janet function under the given name.
 --
@@ -126,22 +112,26 @@ allocateJanetHsSlot = atomicModifyIORef' nextJanetHsSlot $ \n ->
 -- (via @janet_panic@) out of the native call, which is not safe to trigger
 -- from a callback the GHC RTS invoked; supporting it properly is future
 -- work, not attempted here.
+--
+-- The registration is never released (its 'StablePtr' and libffi closure
+-- both live for the rest of the process) — there's no unregister, matching
+-- the rest of this module: a registered function is meant to last the
+-- program's lifetime, not come and go.
 registerFunction :: forall m f. (MonadJanet m, JanetFunction m f) => Text -> f -> m ()
 registerFunction name f = do
     env@(JanetEnv envPtr) <- askJanetEnv
     liftIO $ do
-        slot <- allocateJanetHsSlot
-        slotFunPtr <- mkSlotFn $ \argc argv outPtr -> do
-            args <- peekArray (fromIntegral argc) argv
-            result <- runJanetWithEnv env (applyJanetFunction f args :: m (Either Text Janet))
-            resultValue <- case result of
-                Right v -> pure v
-                Left err -> do
-                    hPutStrLn stderr $ "janet-hs: " <> T.unpack name <> ": " <> T.unpack err
-                    janet_wrap_nil
-            poke outPtr resultValue
-        c_janetHsSetSlot slot slotFunPtr
-        cfun <- peekElemOff janetHsTrampolines $ fromIntegral slot
+        let callback argc argv outPtr = do
+                args <- peekArray (fromIntegral argc) argv
+                result <- runJanetWithEnv env (applyJanetFunction f args :: m (Either Text Janet))
+                resultValue <- case result of
+                    Right v -> pure v
+                    Left err -> do
+                        hPutStrLn stderr $ "janet-hs: " <> T.unpack name <> ": " <> T.unpack err
+                        janet_wrap_nil
+                poke outPtr resultValue
+        sp <- newStablePtr callback
+        cfun <- c_janetHsMakeClosure sp
         BS8.useAsCString (T.encodeUtf8 name)
             $ \cname ->
                 BS8.useAsCString "registered from Haskell" $ \cdoc -> do

@@ -60,6 +60,11 @@
               # we need this so that we can have access
               # to the bindgen runtime library
               hs-bindgen.outputs.overlays.default
+              # cabal2nix (via haskell-flake) auto-resolves
+              # `extra-libraries: X` to a nixpkgs attribute literally named
+              # `X`; nixpkgs calls this one `libffi`, not `ffi` (the
+              # correct cabal/linker name, `-lffi`).
+              (_final: prev: { ffi = prev.libffi; })
             ];
             config.allowUnfree = true;
           };
@@ -97,6 +102,7 @@
               janet
               jpm
               hs-bindgen-cli
+              libffi
             ];
             devshell.startup.bootstrap-janet-bindings = {
               text = ''

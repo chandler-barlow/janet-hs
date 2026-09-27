@@ -37,7 +37,8 @@ library
 
   hs-source-dirs:  lib
   include-dirs:    include
-  c-sources:       cbits/janet_trampolines.c
+  c-sources:       cbits/janet_dynamic_closure.c
+  extra-libraries: ffi
 
 library janet-ffi
   import:

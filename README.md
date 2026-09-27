@@ -66,11 +66,15 @@ Run `cabal haddock` for the full API documentation.
   stderr and returns `nil`, rather than triggering Janet's own
   `janet_panic` (a C `longjmp`), which isn't safe to invoke from a callback
   the GHC RTS invoked.
-- **A fixed pool of 16 registerable Haskell functions.** Janet's native
-  function type has no userdata slot to carry closure identity, so
-  `Janet.Register` bridges through a small fixed pool of C trampolines
-  (`cbits/janet_trampolines.c`) — raise `JANET_HS_NUM_SLOTS` there to
-  register more.
+- **libffi struct-ABI reasoning is hand-verified, not automatic.** Janet's
+  native function type returns `Janet` (a 16-byte struct) by value, and
+  `Janet.Register` builds a genuine, unbounded-count native function per
+  registration via a libffi closure (`cbits/janet_dynamic_closure.c`) to
+  implement that correctly — GHC's own FFI can't generate code that returns
+  a struct by value at all. The `ffi_type` description of `Janet` used
+  there has been reasoned through and confirmed correct on x86-64 SysV and
+  AArch64 AAPCS64 (Apple), and verified working on aarch64-darwin; it
+  hasn't been tested on other architectures the flake happens to expose.
 - `FromJanet [a]` only accepts a Janet array (`@[...]`), not a tuple
   (`[...]`).
 - String marshalling assumes no embedded NUL bytes (Janet strings are read
