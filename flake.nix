@@ -80,7 +80,7 @@
                 command = ''
                   ROOT=$(git rev-parse --show-toplevel)
                   echo "linking janet headers..."
-                  mkdir $ROOT/include
+                  mkdir -p $ROOT/include
                   ln -f -s ${final.janet-headers}/janet.h $ROOT/include/janet.h
                 '';
               }
@@ -98,6 +98,21 @@
               jpm
               hs-bindgen-cli
             ];
+            devshell.startup.bootstrap-janet-bindings = {
+              text = ''
+                ROOT=$(git rev-parse --show-toplevel)
+                mkdir -p "$ROOT/include"
+                ln -f -s ${final.janet-headers}/janet.h "$ROOT/include/janet.h"
+                # bindings/Generated is gitignored: it's regenerated
+                # deterministically from include/janet.h, not checked in.
+                # Only bootstrap it here if it's missing; run the
+                # `generate-bindings` command by hand to refresh it.
+                if [ ! -f "$ROOT/bindings/Generated/Janet.hs" ]; then
+                  echo "bootstrapping janet bindings (bindings/Generated is gitignored)..."
+                  "$ROOT/generate-bindings.sh"
+                fi
+              '';
+            };
           };
 
           haskellProjects.janet-hs = {

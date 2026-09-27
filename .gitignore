@@ -24,3 +24,7 @@ cabal.project.local~
 result
 include/*
 out/*
+
+# hs-bindgen output - regenerated deterministically by generate-bindings.sh
+# (see the `generate-bindings` devshell command)
+bindings/Generated/

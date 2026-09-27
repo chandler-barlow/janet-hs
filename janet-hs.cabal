@@ -44,11 +44,13 @@ library janet-ffi
   exposed-modules:
     Generated.Janet
     Generated.Janet.FunPtr
+    Generated.Janet.Global
     Generated.Janet.Safe
     Generated.Janet.Unsafe
 
   build-depends:
     , base
+    , c-expr-runtime
     , hs-bindgen-runtime
     , primitive
     , text
