@@ -73,5 +73,6 @@ executable janet-demo
   build-depends:
     , base
     , containers
+    , haskeline
     , janet-hs
     , text
