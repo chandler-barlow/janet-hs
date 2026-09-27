@@ -22,13 +22,16 @@ library
 
   exposed-modules:
     Janet
+    Janet.Marshal
     Janet.Monad
 
   build-depends:
     , base
+    , bytestring
     , hs-bindgen-runtime
     , janet-ffi
     , text
+    , transformers
 
   hs-source-dirs:  lib
 
