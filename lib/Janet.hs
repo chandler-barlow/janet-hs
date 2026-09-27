@@ -1,3 +1,7 @@
+-- | The lowest-level primitives for embedding Janet: starting an
+-- interpreter session and a couple of raw string helpers. Most code should
+-- use "Janet.Monad" and "Janet.Marshal" instead; this module is their
+-- foundation.
 module Janet
     ( JanetEnv (..)
     , withJanet
@@ -17,6 +21,8 @@ import Generated.Janet.Safe
 import HsBindgen.Runtime.PtrConst (unsafeFromPtr, unsafeToPtr)
 import System.IO.Unsafe (unsafePerformIO)
 
+-- | The Janet environment table a session is running against — the
+-- bindings visible to evaluated code (@janet_core_env@'s result).
 newtype JanetEnv = JanetEnv (Ptr JanetTable)
 
 -- | Tracks whether 'withJanet' has already run once in this process.
@@ -35,8 +41,8 @@ janetSessionStarted = unsafePerformIO (newIORef False)
 
 -- | Run an action against a fresh Janet interpreter.
 --
--- Only one 'withJanet' session is supported per process (see
--- 'janetSessionStarted'); a second call raises an error rather than
+-- Only one 'withJanet' session is supported per process (tracked by
+-- @janetSessionStarted@); a second call raises an error rather than
 -- silently corrupting later Janet values. Run all Janet code for a
 -- program within a single session.
 --
@@ -64,6 +70,9 @@ withJanet f = do
         env <- JanetEnv <$> janet_core_env nullPtr
         bracket janet_gclock janet_gcunlock $ \_ -> f env
 
+-- | Evaluate a string of Janet source for its side effects, discarding
+-- both the result and any error. Prefer 'Janet.Monad.eval', which reports
+-- errors instead of silently dropping them.
 execJanet :: JanetEnv -> String -> IO ()
 execJanet (JanetEnv env) code =
     withCString "main" $ \m -> do

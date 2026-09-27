@@ -4,6 +4,9 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 
+-- | Register Haskell functions as native Janet functions ('registerFunction',
+-- 'registerFunctions'), so Janet code can call back into Haskell — of any
+-- fixed arity (via 'JanetFunction'), or variadic (via 'Variadic'\/'variadic').
 module Janet.Register
     ( JanetFunction
     , Variadic (..)
@@ -40,6 +43,9 @@ import System.IO.Unsafe (unsafePerformIO)
 -- 'ToJanet'), or a 'Variadic' function taking the whole argument list at
 -- once.
 class JanetFunction m f where
+    -- | Apply a 'JanetFunction' to a call's raw argument list, converting
+    -- arguments and the result as needed. Used internally by
+    -- 'registerFunction'; most callers won't need to call this directly.
     applyJanetFunction :: f -> [Janet] -> m (Either Text Janet)
 
 instance (MonadJanet m, ToJanet b) => JanetFunction m (m b) where
@@ -58,7 +64,10 @@ instance (MonadJanet m, FromJanet a, JanetFunction m f) => JanetFunction m (a ->
 -- fixed arity of a plain @a -> b -> ... -> m r@ registration. Reach for
 -- 'variadic' instead of this constructor directly when every argument
 -- shares one type.
-newtype Variadic m = Variadic {applyVariadic :: [Janet] -> m (Either Text Janet)}
+newtype Variadic m = Variadic
+    { applyVariadic :: [Janet] -> m (Either Text Janet)
+    -- ^ Handle a call's whole raw argument list directly.
+    }
 
 instance MonadJanet m => JanetFunction m (Variadic m) where
     applyJanetFunction (Variadic f) = f

@@ -1,6 +1,10 @@
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
+-- | A monad for running Janet code (@JanetM@), a @MonadJanet@ typeclass
+-- escape hatch for embedding Janet effects into your own monad stack, and
+-- @eval@ for running a string of Janet source. See "Janet.Marshal" for
+-- converting values between Haskell and Janet.
 module Janet.Monad
     ( JanetM
     , runJanetM
@@ -58,19 +62,23 @@ instance MonadJanet JanetM where
     tryJanet (JanetM (ReaderT g)) = JanetM $ ReaderT $ try . g
     runJanetWithEnv env (JanetM r) = runReaderT r env
 
+-- | Start a Janet session and run a computation against it. See
+-- 'Janet.withJanet': only one session is supported per process.
 runJanetM :: JanetM a -> IO a
 runJanetM (JanetM m) = withJanet $ runReaderT m
 
+-- | Like 'runJanetM', but catches a 'JanetException' instead of letting it
+-- propagate as an exception out of the whole session.
 runJanetMEither :: JanetM a -> IO (Either JanetException a)
 runJanetMEither = try . runJanetM
 
 -- | A Janet parse, compile, or runtime error.
---
--- 'janetExceptionMessage' is produced with @janet_to_string@, which renders
--- any Janet value (not just strings) to text.
 data JanetException = JanetException
     { janetExceptionValue :: Janet
+    -- ^ The raw Janet error value (often, but not always, a string).
     , janetExceptionMessage :: Text
+    -- ^ 'janetExceptionValue' rendered with @janet_to_string@, which
+    -- renders any Janet value (not just strings) to text.
     }
 
 instance Show JanetException where

@@ -3,6 +3,9 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeApplications #-}
 
+-- | Converting values between Haskell and Janet ('ToJanet', 'FromJanet'),
+-- and 'evalAs' for evaluating Janet source directly into a typed Haskell
+-- value.
 module Janet.Marshal
     ( ToJanet (..)
     , FromJanet (..)
@@ -45,11 +48,17 @@ import Janet.Monad (MonadJanet, eval)
 
 -- | Convert a Haskell value into a Janet value.
 class ToJanet a where
+    -- | Convert a single value. Runs in any 'MonadJanet' since building a
+    -- heap-allocated Janet value (a string, an array, ...) may need to
+    -- call back into the C API.
     toJanet :: MonadJanet m => a -> m Janet
 
 -- | Convert a Janet value into a Haskell value. Returns @Left@ with a
 -- description of the mismatch (e.g. the actual 'JanetType' found) on failure.
 class FromJanet a where
+    -- | Attempt to convert a single value, without consuming it (a
+    -- 'Janet' value isn't linear — the same value can be converted more
+    -- than once).
     fromJanet :: MonadJanet m => Janet -> m (Either Text a)
 
 typeMismatch :: String -> JanetType -> Either Text a
