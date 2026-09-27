@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
 
 module Main where
@@ -23,7 +24,7 @@ main = do
         memoFib <- liftIO mkMemoFib
         let fns = demoFunctions memoFib
         registerFunctions fns
-        liftIO $ putStrLn $ "Registered Haskell functions: " <> T.unpack (T.intercalate (T.pack ", ") (Map.keys fns))
+        liftIO $ putStrLn $ "Registered Haskell functions: " <> T.unpack (T.intercalate ", " (Map.keys fns))
         repl
 
 -- | Arrow-key history and cursor editing come from Haskeline's
@@ -50,11 +51,11 @@ repl = do
 demoFunctions :: (Double -> JanetM Double) -> Map.Map Text (SomeJanetFunction JanetM)
 demoFunctions memoFib =
     Map.fromList
-        [ (T.pack "haskell-quick-sort", SomeJanetFunction quickSortFn)
-        , (T.pack "haskell-title-case", SomeJanetFunction titleCaseFn)
-        , (T.pack "haskell-sum", SomeJanetFunction (variadic sumFn))
-        , (T.pack "haskell-memo-fib", SomeJanetFunction memoFib)
-        , (T.pack "exit", SomeJanetFunction exitFn)
+        [ ("haskell-quick-sort", SomeJanetFunction quickSortFn)
+        , ("haskell-title-case", SomeJanetFunction titleCaseFn)
+        , ("haskell-sum", SomeJanetFunction (variadic sumFn))
+        , ("haskell-memo-fib", SomeJanetFunction memoFib)
+        , ("exit", SomeJanetFunction exitFn)
         ]
   where
     quickSortFn :: [Double] -> JanetM [Double]

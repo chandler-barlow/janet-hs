@@ -47,6 +47,24 @@ disambiguating a numeric literal in a `case`, or a genuinely unconstrained
 `read`/`show`-style call is still fine as `f x :: T` if `f` has no clean
 forall to hang a type application on).
 
+**`OverloadedStrings` over manual `pack`.** When building a `Text` or
+`ByteString` from a string *literal*, turn on `OverloadedStrings` and write
+the literal directly rather than calling `T.pack`/`BS8.pack` on it.
+
+```haskell
+-- prefer
+{-# LANGUAGE OverloadedStrings #-}
+name = "haskell-quick-sort"
+
+-- over
+name = T.pack "haskell-quick-sort"
+```
+
+This is specifically about *literals* — converting a runtime `String`
+value you didn't just write out by hand (e.g. a line read from a REPL) is
+a real conversion, not something `OverloadedStrings` replaces, and
+`T.pack`/`BS8.pack` stay correct there.
+
 **Prefer `\case` (`LambdaCase`) when a function's entire argument is
 immediately scrutinized.** This applies to `\x -> case x of ...`, not to
 ordinary multi-equation top-level definitions (those are already idiomatic

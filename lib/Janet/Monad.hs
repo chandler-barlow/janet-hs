@@ -1,5 +1,6 @@
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 -- | A monad for running Janet code (@JanetM@), a @MonadJanet@ typeclass
 -- escape hatch for embedding Janet effects into your own monad stack, and
@@ -92,7 +93,7 @@ eval :: MonadJanet m => Text -> m Janet
 eval code = do
     JanetEnv envPtr <- askJanetEnv
     liftIO
-        $ BS8.useAsCString (BS8.pack "janet-hs")
+        $ BS8.useAsCString "janet-hs"
         $ \sourcePath ->
             BS.useAsCString (T.encodeUtf8 code) $ \codeCStr ->
                 alloca $ \outPtr -> do
